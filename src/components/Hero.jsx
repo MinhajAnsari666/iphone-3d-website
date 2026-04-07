@@ -23,7 +23,7 @@ export default function Hero() {
       for (let i = 1; i <= TOTAL_FRAMES; i++) {
         const img = new Image();
         const indexStr = i.toString().padStart(3, "0");
-        img.src = `/public/ezgif-frame-${indexStr}.jpg`;
+        img.src = `/ezgif-frame-${indexStr}.jpg`;
         img.onload = () => {
           loadedCount++;
           if (loadedCount === TOTAL_FRAMES) {
