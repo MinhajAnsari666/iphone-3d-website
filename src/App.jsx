@@ -30,15 +30,30 @@ function App() {
 
     lenis.on('scroll', ScrollTrigger.update);
 
-    gsap.ticker.add((time) => {
-      lenis.raf(time * 1000);
-    });
+    let rafId;
+    function raf(time) {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    }
+    rafId = requestAnimationFrame(raf);
 
-    gsap.ticker.lagSmoothing(0);
+    // Extremely important: Watch for dynamically loading images displacing layout
+    // This prevents all ScrollTriggers from breaking/triggering early
+    const ro = new ResizeObserver(() => {
+      ScrollTrigger.refresh();
+    });
+    ro.observe(document.body);
+
+    // Also force a refresh after standard load times
+    const timeout1 = setTimeout(() => ScrollTrigger.refresh(), 1000);
+    const timeout2 = setTimeout(() => ScrollTrigger.refresh(), 3000);
 
     return () => {
       lenis.destroy();
-      gsap.ticker.remove(lenis.raf);
+      ro.disconnect();
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
     };
   }, []);
 
@@ -48,13 +63,13 @@ function App() {
       <Header />
       <main>
         <Hero />
+        <Performance />
         <BentoGallery />
         <Features />
         <MarqueeText />
-        <Performance />
         <Gallery />
-        <Specs />
         <TextHighlight />
+        <Specs />
         <BuyForm />
       </main>
       <Footer />

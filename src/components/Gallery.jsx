@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function Gallery() {
   const sectionRef = useRef(null);
@@ -14,15 +17,18 @@ export default function Gallery() {
   useEffect(() => {
     const ctx = gsap.context(() => {
       imagesRefs.current.forEach((img, i) => {
-        gsap.to(img, {
-          yPercent: -20 * (i % 2 === 0 ? 1 : -1), // alternating parallax directions
-          ease: "none",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top bottom",
-            end: "bottom top",
-            scrub: true
-          }
+        const offset = 20 * (i % 2 === 0 ? 1 : -1);
+        gsap.fromTo(img, 
+          { yPercent: offset },
+          {
+            yPercent: -offset, // alternating parallax directions
+            ease: "none",
+            scrollTrigger: {
+              trigger: sectionRef.current,
+              start: "top bottom",
+              end: "bottom top",
+              scrub: 1
+            }
         });
       });
     }, sectionRef);
@@ -47,14 +53,16 @@ export default function Gallery() {
           {galleries.map((src, i) => (
             <div 
               key={i} 
-              className={`w-full md:w-1/3 overflow-hidden rounded-[2rem] aspect-[4/5] ${i === 1 ? 'md:-mt-32' : 'md:mt-20'}`}
+              className={`w-full md:w-1/3 overflow-hidden rounded-[2rem] aspect-[4/5] group ${i === 1 ? 'md:-mt-32' : 'md:mt-20'}`}
             >
-              <img 
-                ref={addToRefs}
-                src={src} 
-                alt={`Gallery ${i}`} 
-                className="w-full h-[130%] object-cover object-center transform hover:scale-105 transition-transform duration-700 ease-out cursor-pointer"
-              />
+              {/* GSAP Parallax Wrapper */}
+              <div ref={addToRefs} className="w-full h-[130%] relative -top-[15%]">
+                <img 
+                  src={src} 
+                  alt={`Gallery ${i}`} 
+                  className="w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover:scale-110 cursor-pointer"
+                />
+              </div>
             </div>
           ))}
         </div>

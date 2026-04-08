@@ -1,6 +1,8 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useLayoutEffect, useCallback } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const TOTAL_FRAMES = 240;
 
@@ -16,74 +18,98 @@ export default function Hero() {
   const text3Ref = useRef(null);
   const text4Ref = useRef(null);
 
+  // Use a ref for GSAP to animate without causing React re-renders
+  const frameData = useRef({ frame: 0 });
+
+  const renderFrame = useCallback(() => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    
+    const currentFrame = Math.floor(frameData.current.frame);
+    const img = imagesRef.current[currentFrame];
+
+    // Ensure image exists and is fully loaded before drawing
+    if (!img || !img.complete || img.naturalHeight === 0) return;
+
+    // alpha: false offers a massive performance boost for fully opaque canvases
+    const ctx = canvas.getContext("2d", { alpha: false });
+    
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    ctx.fillStyle = "#050505";
+    ctx.fillRect(0, 0, w, h);
+
+    const hRatio = w / img.width;
+    const vRatio = h / img.height;
+    const ratio = Math.max(hRatio, vRatio); 
+    const centerShift_x = (w - img.width * ratio) / 2;
+    const centerShift_y = (h - img.height * ratio) / 2;
+
+    ctx.drawImage(
+      img,
+      0, 0, img.width, img.height,
+      centerShift_x, centerShift_y, img.width * ratio, img.height * ratio
+    );
+  }, []);
+
   useEffect(() => {
-    // Preload images into an array strictly for the canvas drawing
     let loadedCount = 0;
+    let isCancelled = false;
+
+    // Load images outside of GSAP setup to not hold up DOM mutations
     const loadImages = async () => {
+      // Pre-fill the array to avoid sparse array or strict-mode double-push issues
       for (let i = 1; i <= TOTAL_FRAMES; i++) {
+        if (isCancelled) break;
+        
         const img = new Image();
+        img.decoding = "async"; // non-blocking decode for better performance
         const indexStr = i.toString().padStart(3, "0");
         img.src = `/ezgif-frame-${indexStr}.jpg`;
+
         img.onload = () => {
+          if (isCancelled) return;
           loadedCount++;
+          
+          // Force a render immediately if the current playhead lands on this newly loaded frame
+          if (i - 1 === Math.floor(frameData.current.frame)) {
+            renderFrame();
+          }
+
           if (loadedCount === TOTAL_FRAMES) {
             setImagesLoaded(true);
           }
         };
-        imagesRef.current.push(img);
+        
+        imagesRef.current[i - 1] = img; // Assign statically by index
       }
     };
+
     loadImages();
-  }, []);
 
-  useEffect(() => {
-    if (!imagesLoaded) return;
+    return () => {
+      isCancelled = true;
+    };
+  }, [renderFrame]);
 
+  // Synchronous GSAP execution is crucial here. Wait for layout, not images.
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    if (!canvas) return;
 
-    // Setting high resolution for Retina displays
+    const ctx = canvas.getContext("2d", { alpha: false });
     const dpr = window.devicePixelRatio || 1;
-    // Base size for 16:9
+    
+    // Initial static canvas sizing
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset exactly once before scaling
     ctx.scale(dpr, dpr);
-    
-    // The state we're animating
-    const frameData = {
-      frame: 0
-    };
-
-    const render = () => {
-      const currentFrame = Math.floor(frameData.frame);
-      if (!imagesRef.current[currentFrame]) return;
-      const img = imagesRef.current[currentFrame];
-      
-      // Calculate responsive dimensions to simulate 'object-fit: cover' or 'contain'
-      // We want the phone to occupy appropriate space
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Fill black background just in case
-      ctx.fillStyle = "#050505";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const hRatio = (window.innerWidth) / img.width;
-      const vRatio = (window.innerHeight) / img.height;
-      const ratio = Math.max(hRatio, vRatio); 
-      const centerShift_x = (window.innerWidth - img.width * ratio) / 2;
-      const centerShift_y = (window.innerHeight - img.height * ratio) / 2;
-
-      ctx.drawImage(
-        img,
-        0, 0, img.width, img.height,
-        centerShift_x, centerShift_y, img.width * ratio, img.height * ratio
-      );
-    };
-
-    render();
 
     let ctxContext = gsap.context(() => {
-      // ScrollTrigger timeline that scrubs through frames
+      // By rendering the scrollTrigger synchronously on mount, we ensure all other 
+      // sections below the hero calculate their offsets taking the 400vh pin into account!
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: sectionRef.current,
@@ -91,12 +117,12 @@ export default function Hero() {
           end: `+=${window.innerHeight * 4}`, // 400vh
           scrub: 0.5,
           pin: true,
-          onUpdate: () => render(),
+          onUpdate: () => renderFrame(),
         }
       });
 
       // 0–20% (Hero State - Assembled phone)
-      tl.to(frameData, {
+      tl.to(frameData.current, {
         frame: Math.floor(TOTAL_FRAMES * 0.20),
         ease: "none",
         duration: 1
@@ -106,7 +132,7 @@ export default function Hero() {
       tl.to(text1Ref.current, { opacity: 0, y: -50, duration: 0.5 }, 0.5);
 
       // 20–60% (Explosion Phase)
-      tl.to(frameData, {
+      tl.to(frameData.current, {
         frame: Math.floor(TOTAL_FRAMES * 0.60),
         ease: "none",
         duration: 2
@@ -122,7 +148,7 @@ export default function Hero() {
       tl.to(text2Ref.current, { opacity: 0, y: -50, duration: 0.5 }, 2.5);
 
       // 60–85% (Full Exploded View / Hovering in exploded state)
-      tl.to(frameData, {
+      tl.to(frameData.current, {
         frame: Math.floor(TOTAL_FRAMES * 0.85),
         ease: "power1.inOut",
         duration: 1.5
@@ -137,7 +163,7 @@ export default function Hero() {
       tl.to(text3Ref.current, { opacity: 0, y: -50, duration: 0.5 }, 4.0);
 
       // 85–100% (Reassembly)
-      tl.to(frameData, {
+      tl.to(frameData.current, {
         frame: TOTAL_FRAMES - 1, // Last frame
         ease: "power3.inOut",
         duration: 1.5
@@ -163,13 +189,26 @@ export default function Hero() {
 
     }, sectionRef);
 
-    // Handle Window Resize
+    // After all synchronous DOM additions, force GSAP to sort Triggers by DOM placement
+    // and recalibrate the document height perfectly.
+    ScrollTrigger.sort();
+    ScrollTrigger.refresh();
+
+    // Handle Window Resize 
     const handleResize = () => {
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      ctx.scale(dpr, dpr);
-      render();
+      if(!canvasRef.current) return;
+      const cvs = canvasRef.current;
+      const context = cvs.getContext("2d", { alpha: false });
+      const currentDpr = window.devicePixelRatio || 1;
+      
+      cvs.width = window.innerWidth * currentDpr;
+      cvs.height = window.innerHeight * currentDpr;
+      
+      context.setTransform(1, 0, 0, 1, 0, 0); 
+      context.scale(currentDpr, currentDpr);
+      renderFrame();
     };
+
     window.addEventListener('resize', handleResize);
 
     return () => {
@@ -177,7 +216,7 @@ export default function Hero() {
       window.removeEventListener('resize', handleResize);
     };
 
-  }, [imagesLoaded]);
+  }, [renderFrame]);
 
   return (
     <section ref={sectionRef} className="relative w-full h-[100dvh] bg-background text-white overflow-hidden">
@@ -196,7 +235,7 @@ export default function Hero() {
           style={{ width: '100%', height: '100%', WebkitFilter: 'brightness(1.1) contrast(1.1)' }}
         />
         
-        {/* OVELAY TEXTS */}
+        {/* OVERLAY TEXTS */}
         {/* TEXT 1 */}
         <div ref={text1Ref} className="absolute inset-0 flex flex-col items-center justify-center z-10 p-6 mix-blend-difference pointer-events-none">
           <h1 className="text-6xl md:text-8xl font-bold tracking-tighter mb-4 text-center">
@@ -232,4 +271,3 @@ export default function Hero() {
     </section>
   );
 }
-

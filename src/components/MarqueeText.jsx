@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function MarqueeText() {
   const sectionRef = useRef(null);
@@ -8,23 +11,28 @@ export default function MarqueeText() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
+      // Functional values let GSAP recalculate if window resizes, with safety checks for strict mode
+      const getScroll1 = () => text1Ref.current ? -(text1Ref.current.scrollWidth - window.innerWidth + 200) : 0;
+      const getScroll2 = () => text2Ref.current ? -(text2Ref.current.scrollWidth - window.innerWidth + 200) : 0;
+
       // First text row moves LEFT
       gsap.fromTo(text1Ref.current, 
         { x: 0 },
         {
-          x: "-40%",
+          x: getScroll1,
           ease: "none",
           scrollTrigger: {
             trigger: sectionRef.current,
             start: "top bottom",
             end: "bottom top",
-            scrub: true,
+            scrub: 1,
+            invalidateOnRefresh: true,
           }
       });
 
       // Second text row moves RIGHT
       gsap.fromTo(text2Ref.current, 
-        { x: "-40%" },
+        { x: getScroll2 },
         {
           x: 0,
           ease: "none",
@@ -32,7 +40,8 @@ export default function MarqueeText() {
             trigger: sectionRef.current,
             start: "top bottom",
             end: "bottom top",
-            scrub: true,
+            scrub: 1,
+            invalidateOnRefresh: true,
           }
       });
     }, sectionRef);

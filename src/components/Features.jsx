@@ -3,6 +3,8 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Zap, Battery, Camera, Cpu } from 'lucide-react';
 
+gsap.registerPlugin(ScrollTrigger);
+
 export default function Features() {
   const sectionRef = useRef(null);
   const cardsRef = useRef([]);

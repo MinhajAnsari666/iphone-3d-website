@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function Performance() {
   const sectionRef = useRef(null);
@@ -15,6 +18,7 @@ export default function Performance() {
             scrollTrigger: {
               trigger: sectionRef.current,
               start: "top 70%",
+              toggleActions: "play reverse play reverse"
             }
           }
         );
@@ -27,6 +31,7 @@ export default function Performance() {
             scrollTrigger: {
               trigger: sectionRef.current,
               start: "top 60%",
+              toggleActions: "play reverse play reverse"
             }
           }
         );

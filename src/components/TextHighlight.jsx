@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function TextHighlight() {
   const sectionRef = useRef(null);
@@ -17,9 +20,8 @@ export default function TextHighlight() {
           ease: "power3.out",
           scrollTrigger: {
             trigger: sectionRef.current,
-            start: "top 95%",
-            end: "top 60%",
-            scrub: 1,
+            start: "top 85%",
+            toggleActions: "play reverse play reverse",
           }
         }
       );
@@ -32,12 +34,12 @@ export default function TextHighlight() {
           opacity: 1,
           color: '#ffffff',
           stagger: 0.05,
-          ease: "none",
+          duration: 1,
+          ease: "power1.out",
           scrollTrigger: {
             trigger: sectionRef.current,
-            start: "top 50%",
-            end: "bottom 80%",
-            scrub: true,
+            start: "top 70%",
+            toggleActions: "play reverse play reverse",
           }
         }
       );
